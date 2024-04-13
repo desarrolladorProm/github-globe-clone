@@ -59,6 +59,20 @@ class World {
   stop() {
     loop.stop();
   }
+
+  getEvents() {
+    return globe.getEvents();
+  }
+
+  stopRotation() {
+    controls.autoRotate = false;
+  }
+
+  moveToLocation(lat, lng) {
+    this.stopRotation(); // Stop the globe's rotation
+    pointOfView(camera, controls, globe.instance, { lat, lng }, 1000);
+  }
+
 }
 
 export { World };
