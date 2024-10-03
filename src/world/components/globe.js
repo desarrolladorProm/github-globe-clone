@@ -2,12 +2,8 @@ import ThreeGlobe from "three-globe";
 import countries from "../assets/globe-min.json";
 import arcsData from "../assets/arcs-data.json";
 import { hexToRgb, genRandomNumbers } from "../systems/utils";
-import { Color } from "three";
-import { Raycaster, Vector2 } from 'three';
-import { PerspectiveCamera } from 'three';
-import { Sprite, TextureLoader, SpriteMaterial, Spherical } from 'three';
+import { Color, Raycaster, Vector2, PerspectiveCamera, Spherical, Sprite, SpriteMaterial, CanvasTexture } from 'three';
 import { createGalaxyBackground } from './galaxy';
-
 
 const ARC_REL_LEN = 0.9; // relative to whole arc
 const FLIGHT_TIME = 2000;
@@ -38,29 +34,9 @@ class Globe {
     this.mouse = new Vector2();
 
     this.instance.tick = (delta) => this.tick(delta);
-    
+
     const galaxy = createGalaxyBackground();
     this.instance.add(galaxy);
-
-    this.textureLoader = new TextureLoader();
-    this.textures = {
-      'Flood': this.textureLoader.load('static/Flood.png'),
-      'Flash Flood': this.textureLoader.load('static/Flood.png'),
-      'Epidemic': this.textureLoader.load('static/Epidemic.png'),
-      'Tropical Cyclone': this.textureLoader.load('static/TropicalCyclone.png'),
-      'Cold Wave': this.textureLoader.load('static/ColdWave.png'),
-      'Drought': this.textureLoader.load('static/Drought.png'),
-      'Wild Fire': this.textureLoader.load('static/Fire.png'),
-      'Fire': this.textureLoader.load('static/Fire.png'),
-      'Storm Surge': this.textureLoader.load('static/StormSurge.png'),
-      'Land Slide': this.textureLoader.load('static/LandSlide.png'),
-      'Severe Local Storm': this.textureLoader.load('static/SevereLocalStorm.png'),
-      'Earthquake': this.textureLoader.load('static/Earthquake.png'),
-      'Volcano': this.textureLoader.load('static/Volcano.png'),
-      'Technological Disaster': this.textureLoader.load('static/TechnologicalDisaster.png'),
-      'Default': this.textureLoader.load('static/Default.png')
-    };
-
   }
 
   async init() {
@@ -68,7 +44,6 @@ class Globe {
     this.initCountries(1000);
     this.initAnimationData(1000);
   }
-
 
   initCountries(delay) {
     setTimeout(() => {
@@ -130,86 +105,78 @@ class Globe {
         this.pointsData.filter((d, i) => numbersOfRings.includes(i))
       );
 
-    // Render different 3D models based on the type field
-    for (let i = 0; i < this.pointsData.length; i++) {
-      const point = this.pointsData[i];
-      let texture = this.textures[point.type] || this.textures['Default'];
+      // Render text labels based on the type field
+      for (let i = 0; i < this.pointsData.length; i++) {
+        const point = this.pointsData[i];
 
+        function degToRad(degrees) {
+          return degrees * (Math.PI / 180);
+        }
+        // Create a canvas to draw the text
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = 1024; // Further increase canvas width
+        canvas.height = 512; // Further increase canvas height
+        context.font = '500px Arial'; // Further increase font size
+        context.fillStyle = point.status === 'ongoing' ? '#ff0000' : '#00ff00';
+        context.fillText(point.type, 0, 400); // Adjust text position
+      
+        // Create a texture from the canvas
+        const texture = new CanvasTexture(canvas);
+        const material = new SpriteMaterial({ map: texture });
+        const sprite = new Sprite(material);
 
-      function degToRad(degrees) {
-        return degrees * (Math.PI / 180);
+        // Convert spherical coords to Cartesian
+        const radius = 100; // Adjust as needed
+        const zOffset = 10; // Adjust as needed
+        const sphericalPos = new Spherical(
+          radius + zOffset,
+          degToRad(90 - point.lat),
+          degToRad(point.lng)
+        );
+        sprite.position.setFromSpherical(sphericalPos);
+
+        // Add the sprite to the scene
+        this.instance.add(sprite);
       }
-
-      // Create a sprite material with the texture
-      const spriteMaterial = new SpriteMaterial({
-        map: texture,
-        color: point.status === 'ongoing' ? 0xff0000 : 0x00ff00
-      });
-
-      // Create a sprite with the material
-      const sprite = new Sprite(spriteMaterial);
-
-      sprite.scale.set(4, 4, 1); // Adjust as needed
-
-      // Convert spherical coords to Cartesian
-      const radius = 100; // Adjust as needed
-      const zOffset = 4; // Adjust as needed
-      const sphericalPos = new Spherical(
-        radius + zOffset,
-        degToRad(90 - point.lat),
-        degToRad(point.lng)
-      );
-      sprite.position.setFromSpherical(sphericalPos);
-
-      // Add the sprite to the scene
-      this.instance.add(sprite);
-    }
-
-    // ...
-
-    // ...
 
       deltaGlobe = deltaGlobe % interval;
     }
   }
 
-    async _buildData() {
-      let points = [];
-      try {
-        // Fetch data from API
-        const response = await fetch('https://api.reliefweb.int/v1/disasters?appname=rw-user-0&profile=full&preset=latest&slim=0&limit=10');
-        const data = await response.json();
-        const arcs = data.data; // get the 'data' array from the response
+  async _buildData() {
+    let points = [];
+    try {
+      // Fetch data from API
+      const response = await fetch('https://api.reliefweb.int/v1/disasters?appname=rw-user-0&profile=full&preset=latest&slim=0&limit=10');
+      const data = await response.json();
+      const arcs = data.data; // get the 'data' array from the response
 
-        for (let i = 0; i < arcs.length; i++) {
-          const arc = arcs[i];
-          const rgb = hexToRgb('#62DAFF'); // use a fixed color for now
-          points.push({
-            size: 1.0,
-            order: i, // use the index as the order
-            color: (t) => `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${1 - t})`,
-            label: arc.fields.primary_country.name,
-            lat: arc.fields.primary_country.location.lat,
-            lng: arc.fields.primary_country.location.lon,
-            name: arc.fields.name,
-            type: arc.fields.primary_type.name,
-            status: arc.fields.status, 
-            description: arc.fields.description, 
-            url: arc.fields.url, 
-
-          });
-
-        }
-        this.pointsData = points.filter(
-          (v, i, a) =>
-            a.findIndex((v2) => ["lat", "lng"].every((k) => v2[k] === v[k])) === i
-        );
-      } catch (error) {
-        console.error('Failed to fetch data:', error);
+      for (let i = 0; i < arcs.length; i++) {
+        const arc = arcs[i];
+        const rgb = hexToRgb('#62DAFF'); // use a fixed color for now
+        points.push({
+          size: 1.0,
+          order: i, // use the index as the order
+          color: (t) => `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${1 - t})`,
+          label: arc.fields.primary_country.name,
+          lat: arc.fields.primary_country.location.lat,
+          lng: arc.fields.primary_country.location.lon,
+          name: arc.fields.name,
+          type: arc.fields.primary_type.name,
+          status: arc.fields.status,
+          description: arc.fields.description,
+          url: arc.fields.url,
+        });
       }
+      this.pointsData = points.filter(
+        (v, i, a) =>
+          a.findIndex((v2) => ["lat", "lng"].every((k) => v2[k] === v[k])) === i
+      );
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
     }
-
-    // ...
+  }
 
   _buildMaterial() {
     const globeMaterial = this.instance.globeMaterial();
@@ -232,7 +199,6 @@ class Globe {
   getEvents() {
     return this.pointsData;
   }
-
 }
 
 export { Globe };
