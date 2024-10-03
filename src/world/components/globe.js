@@ -1,15 +1,8 @@
 import ThreeGlobe from "three-globe";
 import countries from "../assets/globe-min.json";
-import arcsData from "../assets/arcs-data.json";
 import { hexToRgb, genRandomNumbers } from "../systems/utils";
 import { Color, Raycaster, Vector2, PerspectiveCamera, Spherical, Sprite, SpriteMaterial, CanvasTexture } from 'three';
 import { createGalaxyBackground } from './galaxy';
-
-const ARC_REL_LEN = 0.9; // relative to whole arc
-const FLIGHT_TIME = 2000;
-const NUM_RINGS = 1;
-const RINGS_MAX_R = 3; // deg
-const RING_PROPAGATION_SPEED = 3; // deg/sec
 
 const interval = 2;
 let deltaGlobe = 0;
@@ -42,7 +35,6 @@ class Globe {
   async init() {
     await this._buildData();
     this.initCountries(1000);
-    this.initAnimationData(1000);
   }
 
   initCountries(delay) {
@@ -51,98 +43,67 @@ class Globe {
         .hexPolygonsData(countries.features)
         .hexPolygonResolution(3)
         .hexPolygonMargin(0.7)
-        .showAtmosphere(true)
-        .atmosphereColor("#ffffff")
-        .atmosphereAltitude(0.1)
+        .showAtmosphere(false) // Ensure atmosphere is disabled
         .hexPolygonColor((e) => {
           return "rgba(255,255,255, 0.7)";
         });
     }, delay);
   }
+tick(delta) {
+  deltaGlobe += delta;
 
-  initAnimationData(delay) {
-    setTimeout(() => {
-      this.instance
-        .arcsData(arcsData.flights)
-        .arcStartLat((d) => d.startLat * 1)
-        .arcStartLng((d) => d.startLng * 1)
-        .arcEndLat((d) => d.endLat * 1)
-        .arcEndLng((d) => d.endLng * 1)
-        .arcColor((e) => e.color)
-        .arcAltitude((e) => {
-          return e.arcAlt * 1;
-        })
-        .arcStroke((e) => {
-          return [0.32, 0.28, 0.3][Math.round(Math.random() * 2)];
-        })
-        .arcDashLength(ARC_REL_LEN)
-        .arcDashInitialGap((e) => e.order * 1)
-        .arcDashGap(15)
-        .arcDashAnimateTime((e) => FLIGHT_TIME)
-        .pointsData(this.pointsData)
-        .pointColor((e) => e.color)
-        .pointsMerge(true)
-        .pointAltitude(0.0)
-        .pointRadius(0.25)
-        .ringsData([])
-        .ringColor((e) => (t) => e.color(t))
-        .ringMaxRadius(RINGS_MAX_R)
-        .ringPropagationSpeed(RING_PROPAGATION_SPEED)
-        .ringRepeatPeriod((FLIGHT_TIME * ARC_REL_LEN) / NUM_RINGS);
-    }, delay);
-  }
+  if (deltaGlobe > interval) {
+    numbersOfRings = genRandomNumbers(
+      0,
+      this.pointsData.length,
+      Math.floor((this.pointsData.length * 4) / 5)
+    );
+    this.instance.ringsData(
+      this.pointsData.filter((d, i) => numbersOfRings.includes(i))
+    );
 
-  tick(delta) {
-    deltaGlobe += delta;
+    // Render text labels based on the type field
+    for (let i = 0; i < this.pointsData.length; i++) {
+      const point = this.pointsData[i];
 
-    if (deltaGlobe > interval) {
-      numbersOfRings = genRandomNumbers(
-        0,
-        this.pointsData.length,
-        Math.floor((this.pointsData.length * 4) / 5)
-      );
-      this.instance.ringsData(
-        this.pointsData.filter((d, i) => numbersOfRings.includes(i))
-      );
-
-      // Render text labels based on the type field
-      for (let i = 0; i < this.pointsData.length; i++) {
-        const point = this.pointsData[i];
-
-        function degToRad(degrees) {
-          return degrees * (Math.PI / 180);
-        }
-        // Create a canvas to draw the text
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.width = 1024; // Further increase canvas width
-        canvas.height = 512; // Further increase canvas height
-        context.font = '500px Arial'; // Further increase font size
-        context.fillStyle = point.status === 'ongoing' ? '#ff0000' : '#00ff00';
-        context.fillText(point.type, 0, 400); // Adjust text position
-      
-        // Create a texture from the canvas
-        const texture = new CanvasTexture(canvas);
-        const material = new SpriteMaterial({ map: texture });
-        const sprite = new Sprite(material);
-
-        // Convert spherical coords to Cartesian
-        const radius = 100; // Adjust as needed
-        const zOffset = 10; // Adjust as needed
-        const sphericalPos = new Spherical(
-          radius + zOffset,
-          degToRad(90 - point.lat),
-          degToRad(point.lng)
-        );
-        sprite.position.setFromSpherical(sphericalPos);
-
-        // Add the sprite to the scene
-        this.instance.add(sprite);
+      function degToRad(degrees) {
+        return degrees * (Math.PI / 180);
       }
 
-      deltaGlobe = deltaGlobe % interval;
+      // Create a canvas to draw the text
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.width = 10048; // Increase canvas width
+      canvas.height = 1024; // Increase canvas height
+      context.font = '1000px Arial'; // Increase font size
+      context.fillStyle = point.status === 'ongoing' ? '#ff0000' : '#00ff00';
+      context.fillText(point.type, 0, 800); // Adjust text position
+
+      // Create a texture from the canvas
+      const texture = new CanvasTexture(canvas);
+      const material = new SpriteMaterial({ map: texture });
+      const sprite = new Sprite(material);
+
+      // Scale the sprite to make the text larger
+      sprite.scale.set(10, 5, 1); // Adjust scale as needed
+
+      // Convert spherical coords to Cartesian
+      const radius = 100; // Adjust as needed
+      const zOffset = 4; // Adjust as needed
+      const sphericalPos = new Spherical(
+        radius + zOffset,
+        degToRad(90 - point.lat),
+        degToRad(point.lng)
+      );
+      sprite.position.setFromSpherical(sphericalPos);
+
+      // Add the sprite to the scene
+      this.instance.add(sprite);
     }
+
+    deltaGlobe = deltaGlobe % interval;
   }
+}
 
   async _buildData() {
     let points = [];

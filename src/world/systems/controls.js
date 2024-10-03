@@ -5,9 +5,9 @@ function createControls(camera, canvas) {
   const controls = new OrbitControls(camera, canvas);
 
   controls.enablePan = false;
-  controls.enableZoom = false;
-  controls.minDistance = cameraZ;
-  controls.maxDistance = cameraZ;
+  controls.enableZoom = true; // Enable zooming
+  controls.minDistance = cameraZ / 2; // Set minimum zoom distance
+  controls.maxDistance = cameraZ * 2; // Set maximum zoom distance
   controls.autoRotateSpeed = 0.5;
   controls.autoRotate = true;
 
