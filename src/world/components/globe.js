@@ -6,6 +6,7 @@ import { Color } from "three";
 import { Raycaster, Vector2 } from 'three';
 import { PerspectiveCamera } from 'three';
 import { Sprite, TextureLoader, SpriteMaterial, Spherical } from 'three';
+import { createGalaxyBackground } from './galaxy';
 
 
 const ARC_REL_LEN = 0.9; // relative to whole arc
@@ -37,6 +38,28 @@ class Globe {
     this.mouse = new Vector2();
 
     this.instance.tick = (delta) => this.tick(delta);
+    
+    const galaxy = createGalaxyBackground();
+    this.instance.add(galaxy);
+
+    this.textureLoader = new TextureLoader();
+    this.textures = {
+      'Flood': this.textureLoader.load('static/Flood.png'),
+      'Flash Flood': this.textureLoader.load('static/Flood.png'),
+      'Epidemic': this.textureLoader.load('static/Epidemic.png'),
+      'Tropical Cyclone': this.textureLoader.load('static/TropicalCyclone.png'),
+      'Cold Wave': this.textureLoader.load('static/ColdWave.png'),
+      'Drought': this.textureLoader.load('static/Drought.png'),
+      'Wild Fire': this.textureLoader.load('static/Fire.png'),
+      'Fire': this.textureLoader.load('static/Fire.png'),
+      'Storm Surge': this.textureLoader.load('static/StormSurge.png'),
+      'Land Slide': this.textureLoader.load('static/LandSlide.png'),
+      'Severe Local Storm': this.textureLoader.load('static/SevereLocalStorm.png'),
+      'Earthquake': this.textureLoader.load('static/Earthquake.png'),
+      'Volcano': this.textureLoader.load('static/Volcano.png'),
+      'Technological Disaster': this.textureLoader.load('static/TechnologicalDisaster.png'),
+      'Default': this.textureLoader.load('static/Default.png')
+    };
 
   }
 
@@ -108,58 +131,13 @@ class Globe {
       );
 
     // Render different 3D models based on the type field
-      for (let i = 0; i < this.pointsData.length; i++) {
+    for (let i = 0; i < this.pointsData.length; i++) {
       const point = this.pointsData[i];
-      const textureLoader = new TextureLoader();
-      let texture;
+      let texture = this.textures[point.type] || this.textures['Default'];
+
 
       function degToRad(degrees) {
         return degrees * (Math.PI / 180);
-      }
-
-      switch (point.type) {
-        case 'Flood':
-        case 'Flash Flood':
-          texture = textureLoader.load('static/Flood.png');
-          break;
-        case 'Epidemic':
-          texture = textureLoader.load('static/Epidemic.png');
-          break;
-        case 'Tropical Cyclone':
-          texture = textureLoader.load('static/TropicalCyclone.png');
-          break;
-        case 'Cold Wave':
-          texture = textureLoader.load('static/ColdWave.png');
-          break;
-        case 'Drought':
-          texture = textureLoader.load('static/Drought.png');
-          break;
-        case 'Wild Fire':
-        case 'Fire':
-          texture = textureLoader.load('static/Fire.png');
-          break;
-        case 'Storm Surge':
-          texture = textureLoader.load('static/StormSurge.png');
-          break;
-        case 'Land Slide':
-          texture = textureLoader.load('static/LandSlide.png');
-          break;
-        case 'Severe Local Storm':
-          texture = textureLoader.load('static/SevereLocalStorm.png');
-          break;
-        case 'Earthquake':
-          texture = textureLoader.load('static/Earthquake.png');
-          break;
-        case 'Volcano':
-          texture = textureLoader.load('static/Volcano.png');
-          break;
-        case 'Technological Disaster':
-          texture = textureLoader.load('static/TechnologicalDisaster.png');
-          break;
-        default:
-          console.log('Unhandled case:', point.type);
-
-          texture = textureLoader.load('static/Default.png');
       }
 
       // Create a sprite material with the texture
@@ -199,7 +177,7 @@ class Globe {
       let points = [];
       try {
         // Fetch data from API
-        const response = await fetch('https://api.reliefweb.int/v1/disasters?appname=rw-user-0&profile=full&preset=latest&slim=0&limit=100');
+        const response = await fetch('https://api.reliefweb.int/v1/disasters?appname=rw-user-0&profile=full&preset=latest&slim=0&limit=10');
         const data = await response.json();
         const arcs = data.data; // get the 'data' array from the response
 
