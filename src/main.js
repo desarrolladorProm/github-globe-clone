@@ -16,6 +16,8 @@ function main() {
     console.log(events);
 
     ReactDOM.render(<Sidebar events={events} world={world} />, document.querySelector("#sidebar"));
+  }).catch((error) => {
+    console.error('Error initializing globe:', error);
   });
 }
 

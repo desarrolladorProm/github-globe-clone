@@ -1,12 +1,11 @@
 import ThreeGlobe from "three-globe";
 import countries from "../assets/globe-min.json";
-import { hexToRgb, genRandomNumbers } from "../systems/utils";
-import { Color, Raycaster, Vector2, PerspectiveCamera, Spherical, Sprite, SpriteMaterial, CanvasTexture } from 'three';
+import { hexToRgb } from "../systems/utils";
+import { Color, Raycaster, Vector2, PerspectiveCamera, Spherical, Sprite, SpriteMaterial, CanvasTexture, BufferGeometry, Line, LineBasicMaterial, Vector3 } from 'three';
 import { createGalaxyBackground } from './galaxy';
 
 const interval = 2;
 let deltaGlobe = 0;
-let numbersOfRings = 0;
 
 class Globe {
   constructor() {
@@ -35,6 +34,7 @@ class Globe {
   async init() {
     await this._buildData();
     this.initCountries(1000);
+    this.initTextLabels(); // Initialize text labels once
   }
 
   initCountries(delay) {
@@ -49,44 +49,35 @@ class Globe {
         });
     }, delay);
   }
-tick(delta) {
-  deltaGlobe += delta;
 
-  if (deltaGlobe > interval) {
-    numbersOfRings = genRandomNumbers(
-      0,
-      this.pointsData.length,
-      Math.floor((this.pointsData.length * 4) / 5)
-    );
-    this.instance.ringsData(
-      this.pointsData.filter((d, i) => numbersOfRings.includes(i))
-    );
-
+  initTextLabels() {
     // Render text labels based on the type field
-    for (let i = 0; i < this.pointsData.length; i++) {
+    for (let i = 0; i < Math.min(this.pointsData.length, 50); i++) { // Limit the number of sprites
       const point = this.pointsData[i];
-
+  
       function degToRad(degrees) {
         return degrees * (Math.PI / 180);
       }
-
-      // Create a canvas to draw the text
+  
+      // Create a canvas to draw the text and icon
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
-      canvas.width = 10048; // Increase canvas width
-      canvas.height = 1024; // Increase canvas height
-      context.font = '1000px Arial'; // Increase font size
-      context.fillStyle = point.status === 'ongoing' ? '#ff0000' : '#00ff00';
-      context.fillText(point.type, 0, 800); // Adjust text position
-
+      canvas.width = 1024; // Adjust canvas width
+      canvas.height = 256; // Adjust canvas height
+      context.font = '48px Arial'; // Adjust font size
+      context.fillStyle = '#ffffff'; // Set text color to white
+      const icon = point.status === 'ongoing' ? '🔴' : '🟢'; // Use emojis for active/inactive
+      context.textAlign = 'center'; // Center the text horizontally
+      context.fillText(`${icon} ${point.type}`, canvas.width / 2, 128); // Adjust text position
+      
       // Create a texture from the canvas
       const texture = new CanvasTexture(canvas);
       const material = new SpriteMaterial({ map: texture });
       const sprite = new Sprite(material);
-
+      
       // Scale the sprite to make the text larger
-      sprite.scale.set(10, 5, 1); // Adjust scale as needed
-
+      sprite.scale.set(20, 6, 1); // Adjust scale as needed
+      
       // Convert spherical coords to Cartesian
       const radius = 100; // Adjust as needed
       const zOffset = 4; // Adjust as needed
@@ -96,14 +87,41 @@ tick(delta) {
         degToRad(point.lng)
       );
       sprite.position.setFromSpherical(sphericalPos);
-
+      
+      // Adjust the position to be above the circle
+      sprite.position.y += 0; // Adjust this value as needed to position the text above the circle
+  
       // Add the sprite to the scene
       this.instance.add(sprite);
+  
+      // Create a line between the tick circle animation and the text
+      const lineMaterial = new LineBasicMaterial({ color: 0xffffff });
+      const startPoint = new Vector3().setFromSpherical(new Spherical(radius, degToRad(90 - point.lat), degToRad(point.lng)));
+      const endPoint = new Vector3().setFromSpherical(new Spherical(radius + zOffset + 10, degToRad(90 - point.lat), degToRad(point.lng))); // Adjust zOffset + 10 to position the text above the circle
+      const lineGeometry = new BufferGeometry().setFromPoints([startPoint, endPoint]);
+      const line = new Line(lineGeometry, lineMaterial);
+  
+      // Add the line to the scene
+      //this.instance.add(line);
+  
+      // Dispose of the canvas and texture to free up memory
+      canvas.remove();
+      texture.dispose();
     }
-
-    deltaGlobe = deltaGlobe % interval;
   }
-}
+
+  tick(delta) {
+    deltaGlobe += delta;
+
+    if (deltaGlobe > interval) {
+      // Directly use pointsData to show all rings all the time
+      console.log('Showing all rings for pointsData:', this.pointsData);
+
+      this.instance.ringsData(this.pointsData);
+
+      deltaGlobe = deltaGlobe % interval;
+    }
+  }
 
   async _buildData() {
     let points = [];
@@ -159,6 +177,17 @@ tick(delta) {
 
   getEvents() {
     return this.pointsData;
+  }
+
+  dispose() {
+    // Dispose of all resources
+    this.instance.traverse((object) => {
+      if (object.geometry) object.geometry.dispose();
+      if (object.material) {
+        if (object.material.map) object.material.map.dispose();
+        object.material.dispose();
+      }
+    });
   }
 }
 
